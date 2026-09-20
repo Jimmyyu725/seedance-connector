@@ -1,0 +1,6 @@
+{
+  "enabled": false,
+  "provider": "volcengine",
+  "model": "doubao-seedance-2-5-260628",
+  "credential_file": "/Users/jingtianyu/.config/seedance/credentials.json"
+}
