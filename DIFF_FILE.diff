@@ -1,0 +1,9 @@
+--- baseline/settings.json
++++ configured/settings.json
+@@ -1,5 +1,5 @@
+ {
+-  "enabled": false,
++  "enabled": true,
+   "provider": "volcengine",
+   "model": "doubao-seedance-2-5-260628",
+   "credential_file": "/Users/jingtianyu/.config/seedance/credentials.json"

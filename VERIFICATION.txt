@@ -1,0 +1,83 @@
+Seedance 2.5 · 火山方舟配置验证
+
+提供商：火山方舟；官方地址：https://ark.cn-beijing.volces.com/api/v3
+模型：doubao-seedance-2-5-260628
+实现：可发现的 Codex Skill + Python 标准库 CLI，不是 MCP 服务；没有更换 Codex 主模型。
+Skill 安装路径：/Users/jingtianyu/.codex/skills/seedance
+安装形式：符号链接到 /Users/jingtianyu/Documents/Codex/seedance-connector/skill
+密钥文件：/Users/jingtianyu/.config/seedance/credentials.json，权限600，父目录700；密钥没有进入源码或输出日志。
+
+实现分支：feature/seedance-api；完成后快进至main。
+改变字段：settings.json 的 enabled 从 false 变为 true。
+MODIFIED_FILE: /Users/jingtianyu/Documents/Codex/seedance-connector/settings.json
+DIFF_FILE: /Users/jingtianyu/Documents/Codex/seedance-connector/DIFF_FILE.diff
+VERIFICATION.txt: /Users/jingtianyu/Documents/Codex/seedance-connector/VERIFICATION.txt
+ROLLBACK.sh: /Users/jingtianyu/Documents/Codex/seedance-connector/ROLLBACK.sh
+基线 SHA256：847680ad10fe87326a1791505ba20a877829828b3a4da00fd89f212359b89e81
+修改后 SHA256：981410d5492be58c10e19bed6813515e11c1505235445b6b29883c3f520b2a94
+
+BASELINE
+命令：python3 /Users/jingtianyu/Documents/Codex/seedance-connector/skill/scripts/seedance.py --settings /Users/jingtianyu/Documents/Codex/seedance-connector/.verification/baseline-settings.json check --offline
+输入：基线settings.json（enabled=false）；不读取密钥、不联网。
+实际输出：
+{
+  "status": "disabled",
+  "provider": "volcengine",
+  "model": "doubao-seedance-2-5-260628",
+  "network_requests": 0
+}
+退出状态：0
+
+MODIFIED
+命令：python3 /Users/jingtianyu/Documents/Codex/seedance-connector/skill/scripts/seedance.py check --offline
+输入：/Users/jingtianyu/Documents/Codex/seedance-connector/settings.json（enabled=true）。
+实际输出：
+{
+  "status": "configured",
+  "provider": "volcengine",
+  "model": "doubao-seedance-2-5-260628",
+  "network_requests": 0
+}
+退出状态：0
+
+LIVE_READ_ONLY
+命令：python3 /Users/jingtianyu/Documents/Codex/seedance-connector/skill/scripts/seedance.py check
+输入：上述配置及密钥文件；GET /api/v3/contents/generations/tasks?page_size=1，只向火山方舟官方地址鉴权，禁止重定向转发凭据。
+实际输出：
+{
+  "status": "authenticated",
+  "http_status": 200,
+  "model": "doubao-seedance-2-5-260628",
+  "generation_permission": "not_tested",
+  "generation_tasks_created": 0
+}
+退出状态：0
+结论：密钥被视频任务查询接口接受。未实际调用收费生成；Seedance 2.5 模型权限、余额及完整视频生成仍未实测。没有上传素材、提交视频任务或查询打印历史任务内容。
+
+ROLLBACK
+准备命令：cp /Users/jingtianyu/Documents/Codex/seedance-connector/settings.json /Users/jingtianyu/Documents/Codex/seedance-connector/.verification/rollback-test.json
+命令：/Users/jingtianyu/Documents/Codex/seedance-connector/ROLLBACK.sh /Users/jingtianyu/Documents/Codex/seedance-connector/.verification/rollback-test.json
+输入：修改后配置的独立副本。
+实际输出：PASS rollback: connector disabled; credentials retained
+退出状态：0
+复验命令：python3 /Users/jingtianyu/.codex/skills/seedance/scripts/seedance.py --settings /Users/jingtianyu/Documents/Codex/seedance-connector/.verification/rollback-test.json check --offline
+实际输出：
+{
+  "status": "disabled",
+  "provider": "volcengine",
+  "model": "doubao-seedance-2-5-260628",
+  "network_requests": 0
+}
+退出状态：0
+恢复行为：仅测试副本回到禁用状态；当前settings.json仍启用，Skill仍安装，密钥未删除。脚本在覆盖前留存目标配置副本。
+
+LOCAL_TESTS
+命令：python3 -m unittest discover -s /Users/jingtianyu/Documents/Codex/seedance-connector -p test_seedance.py -v
+结果：Ran 6 tests；OK；退出状态0。
+覆盖：模型/时长/引用格式、基线与配置分支、未确认时阻止提交、准备请求无网络且不覆盖、官方来源与重定向控制、连接检查隐藏历史任务信息。
+Skill校验：使用固定PyYAML 6.0.2仅作为验证工具依赖，放在.verification/validator-deps；运行时不依赖它。
+命令：PYTHONPATH=/Users/jingtianyu/Documents/Codex/seedance-connector/.verification/validator-deps python3 /Users/jingtianyu/.codex/skills/.system/skill-creator/scripts/quick_validate.py /Users/jingtianyu/Documents/Codex/seedance-connector/skill
+实际输出：Skill is valid!
+退出状态：0
+
+四个文件均已重新打开；回退脚本可执行；源码中未包含真实API Key。

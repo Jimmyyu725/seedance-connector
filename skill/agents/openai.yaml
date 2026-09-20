@@ -1,0 +1,4 @@
+interface:
+  display_name: "Seedance 2.5 · 火山方舟"
+  short_description: "通过火山方舟准备、提交与查询视频生成任务，收费生成前核对素材和费用"
+  default_prompt: "使用 $seedance 检查连接，并先准备视频方案与费用估算，不提交生成。"

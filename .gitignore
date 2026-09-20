@@ -2,3 +2,4 @@
 __pycache__/
 .verification/rollback-test.json
 .verification/*.before-rollback.*
+.verification/validator-deps/
