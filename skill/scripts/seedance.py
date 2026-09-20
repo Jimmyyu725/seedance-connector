@@ -29,17 +29,26 @@ def settings(path):
     return cfg
 
 
-def request(cfg, method, route, payload=None):
-    if not cfg.get('enabled'):
-        raise ValueError('Connector is disabled.')
-    if not (route == '/contents/generations/tasks?page_size=1' or route == '/contents/generations/tasks' or re.fullmatch(r'/contents/generations/tasks/[A-Za-z0-9_-]{1,160}', route)):
-        raise ValueError('Unsupported API route.')
+def read_key(cfg):
+    for name in ('ARK_API_KEY', 'SEEDANCE_API_KEY', 'VIDEO_API_KEY'):
+        value = os.environ.get(name)
+        if value:
+            return value
     credentials = Path(cfg['credential_file']).expanduser()
     if credentials.stat().st_mode & 0o077:
         raise ValueError('Credential file permissions must be 600 or stricter.')
     key = json.loads(credentials.read_text()).get('api_key')
     if not isinstance(key, str) or not key:
         raise ValueError('API key is missing.')
+    return key
+
+
+def request(cfg, method, route, payload=None):
+    if not cfg.get('enabled'):
+        raise ValueError('Connector is disabled.')
+    if not (route == '/contents/generations/tasks?page_size=1' or route == '/contents/generations/tasks' or re.fullmatch(r'/contents/generations/tasks/[A-Za-z0-9_-]{1,160}', route)):
+        raise ValueError('Unsupported API route.')
+    key = read_key(cfg)
     data = None if payload is None else json.dumps(payload, ensure_ascii=False).encode()
     req = urllib.request.Request(BASE_URL + route, data=data, method=method, headers={
         'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json', 'Accept': 'application/json'})

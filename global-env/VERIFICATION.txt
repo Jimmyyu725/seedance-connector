@@ -1,0 +1,64 @@
+Mac 当前用户全局视频 API 配置
+
+提供商：火山方舟；默认模型：doubao-seedance-2-5-260628。
+改变字段：从仅本地凭据文件读取，改为当前用户全局环境默认；客户端优先级为 ARK_API_KEY → SEEDANCE_API_KEY → VIDEO_API_KEY → 原凭据文件。
+实现分支：feature/global-video-key；测试通过后快进合并至main。
+
+MODIFIED_FILE: /Users/jingtianyu/.zshenv
+DIFF_FILE: /Users/jingtianyu/Documents/Codex/seedance-connector/global-env/DIFF_FILE.diff
+VERIFICATION.txt: /Users/jingtianyu/Documents/Codex/seedance-connector/global-env/VERIFICATION.txt
+ROLLBACK.sh: /Users/jingtianyu/Documents/Codex/seedance-connector/global-env/ROLLBACK.sh
+
+其他实际配置：
+- /Users/jingtianyu/.profile：保留原内容，追加默认环境载入。
+- /Users/jingtianyu/.config/video-generation/default.env：权限600；含实际凭据，未写入源码或报告。
+- /Users/jingtianyu/.config/video-generation/sync_env.py：权限700，登录时同步受保护的凭据。
+- /Users/jingtianyu/Library/LaunchAgents/com.jingtianyu.video-api-env.plist：已加载到当前用户GUI会话，RunAtLoad=true，不包含密钥。
+- 原凭据仍在 /Users/jingtianyu/.config/seedance/credentials.json，权限600。
+- 私有备份与原始文件哈希：/Users/jingtianyu/.config/video-generation/backup-manifest.json，备份目录 /Users/jingtianyu/.config/video-generation/backups/20260921-004626。
+
+变量：ARK_API_KEY、SEEDANCE_API_KEY、VIDEO_API_KEY。
+非密钥默认项：VIDEO_API_PROVIDER=volcengine；VIDEO_API_BASE_URL=https://ark.cn-beijing.volces.com/api/v3；VIDEO_API_MODEL=doubao-seedance-2-5-260628。
+新zsh会话已生效；运行中的GUI应用需退出后重新启动才继承新的launchd环境。系统没有通用的“所有视频软件自动采用”接口，软件仍需读取相应变量。
+
+BASELINE
+命令：python3 /Users/jingtianyu/Documents/Codex/seedance-connector/global-env/verify_global.py --expect absent
+输入：修改前真实用户配置与launchd环境；仅比较密钥，不输出值。
+实际输出：PASS absent: {"launch_agent_loaded": false, "launchd_key_matches": false, "zsh_login": false, "zsh_nonlogin": false}
+退出状态：0
+
+MODIFIED
+命令：python3 /Users/jingtianyu/Documents/Codex/seedance-connector/global-env/verify_global.py --expect present
+输入：修改后的真实配置、新zsh登录/非登录进程及用户launchd环境。
+实际输出：PASS present: {"credential_file_mode": "600", "launch_agent_loaded": true, "launchd_key_matches": true, "zsh_login": true, "zsh_nonlogin": true}
+退出状态：0
+
+LIVE_READ_ONLY
+命令：python3 /Users/jingtianyu/.codex/skills/seedance/scripts/seedance.py check
+输入：全局ARK_API_KEY；只请求火山方舟视频任务列表。
+实际输出：
+{
+  "status": "authenticated",
+  "http_status": 200,
+  "model": "doubao-seedance-2-5-260628",
+  "generation_permission": "not_tested",
+  "generation_tasks_created": 0
+}
+退出状态：0。没有生成视频、上传素材或提交收费任务。
+
+ROLLBACK
+命令：python3 /Users/jingtianyu/Documents/Codex/seedance-connector/global-env/test_rollback.py
+输入：9个修改文件在私有临时目录中的独立副本、修改前备份和哈希；不修改真实launchd环境。
+实际输出：
+PASS rollback: copied files restored; live environment unchanged
+PASS rollback shell: no video API defaults
+PASS rollback test: original hashes restored; current credential retained
+退出状态：0
+恢复行为：副本恢复原文件哈希与原有存在状态；副本shell不再载入视频API默认值。真实全局配置继续启用；原始凭据文件保留。
+正式回退先保留当前文件到私有rescue副本，再恢复旧文件与原launchd变量；安装后被用户改动的文件会使回退停止，避免覆盖后续修改。
+
+LOCAL_TESTS
+python3 -m unittest discover -s /Users/jingtianyu/Documents/Codex/seedance-connector -p test_seedance.py -v
+Ran 7 tests；OK；退出状态0。
+Skill静态校验：Skill is valid!；退出状态0。
+所有记录路径均已重新读取；四个交付文件存在，ROLLBACK.sh可执行。

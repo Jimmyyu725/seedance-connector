@@ -8,7 +8,7 @@ description: 使用已配置的火山方舟 Seedance 2.5 API 检查连接、准�
 调用脚本：`/Users/jingtianyu/.codex/skills/seedance/scripts/seedance.py`，使用 `python3`。这是本地 CLI 接入，不是 MCP 服务。
 
 - 默认模型为 `doubao-seedance-2-5-260628`。接口固定为火山方舟北京官方域名；不用此凭据访问其他平台。
-- 密钥由脚本读取 `/Users/jingtianyu/.config/seedance/credentials.json`。不要通过 cat、日志、截图或回复展示密钥；项目源码不包含密钥。
+- 密钥按 `ARK_API_KEY` → `SEEDANCE_API_KEY` → `VIDEO_API_KEY` 顺序读取全局或当前进程环境变量；未设置时才读取 `/Users/jingtianyu/.config/seedance/credentials.json`。当前用户已将此火山方舟密钥设为默认视频生成凭据。不要通过 cat、日志、截图或回复展示密钥；项目源码不包含密钥。
 - `check --offline` 只检查本地配置；`check` 只查询一项视频任务列表，不生成视频。鉴权成功不证明 Seedance 2.5 已开通生成权限、余额充足或视频已生成。
 - 用 `prepare --prompt-file /absolute/prompt.txt --request-out /absolute/request.json --duration 5 --resolution 720p` 准备请求；它不联网、不覆盖已有请求。音频默认开启，可加 `--silent`。
 - 图像、视频、音频参考可在请求 JSON 中明确列出，使用当前官方接口支持的 HTTPS 地址或 asset:// 标识。本地路径不等于素材已上传；此工具不负责上传。外发前明确实际素材和目的地。

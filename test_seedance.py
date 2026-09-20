@@ -12,6 +12,18 @@ spec = importlib.util.spec_from_file_location('seedance', ROOT/'skill/scripts/se
 client = importlib.util.module_from_spec(spec); spec.loader.exec_module(client)
 
 class ConnectorTests(unittest.TestCase):
+    def setUp(self):
+        environment = patch.dict(client.os.environ, {}, clear=True)
+        environment.start(); self.addCleanup(environment.stop)
+
+    def test_global_key_precedence_without_credential_file(self):
+        with patch.dict(client.os.environ, {'ARK_API_KEY':'ark-test','SEEDANCE_API_KEY':'seed-test','VIDEO_API_KEY':'video-test'}, clear=True):
+            self.assertEqual(client.read_key({}), 'ark-test')
+        with patch.dict(client.os.environ, {'SEEDANCE_API_KEY':'seed-test','VIDEO_API_KEY':'video-test'}, clear=True):
+            self.assertEqual(client.read_key({}), 'seed-test')
+        with patch.dict(client.os.environ, {'VIDEO_API_KEY':'video-test'}, clear=True):
+            self.assertEqual(client.read_key({}), 'video-test')
+
     def payload(self):
         return {'model':client.MODEL,'duration':5,'resolution':'720p','content':[{'type':'text','text':'A sunset over the sea.'}]}
 

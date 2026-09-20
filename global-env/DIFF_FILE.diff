@@ -1,0 +1,142 @@
+--- before/.zshenv
++++ after/.zshenv
+@@ -0,0 +1,4 @@
++
++# BEGIN managed video API defaults
++[ ! -r "$HOME/.config/video-generation/default.env" ] || . "$HOME/.config/video-generation/default.env"
++# END managed video API defaults
+--- before/.profile
++++ after/.profile
+@@ -2,0 +3,4 @@
++
++# BEGIN managed video API defaults
++[ ! -r "$HOME/.config/video-generation/default.env" ] || . "$HOME/.config/video-generation/default.env"
++# END managed video API defaults
+--- before/.config/video-generation/sync_env.py
++++ after/.config/video-generation/sync_env.py
+@@ -0,0 +1,44 @@
++#!/usr/bin/env python3
++"""Publish the user's existing video API credential to shell and launchd environments."""
++import json
++import os
++from pathlib import Path
++import shlex
++import subprocess
++import tempfile
++
++HOME = Path.home()
++ROOT = HOME / '.config/video-generation'
++CONFIG = HOME / '.config/seedance/credentials.json'
++
++def main():
++    if CONFIG.stat().st_mode & 0o077:
++        raise ValueError('Credential permissions must be 600 or stricter.')
++    key = json.loads(CONFIG.read_text())['api_key']
++    if not isinstance(key, str) or not key or '\n' in key or '\r' in key:
++        raise ValueError('Invalid credential format.')
++    values = {
++        'ARK_API_KEY': key, 'SEEDANCE_API_KEY': key, 'VIDEO_API_KEY': key,
++        'VIDEO_API_BASE_URL': 'https://ark.cn-beijing.volces.com/api/v3',
++        'VIDEO_API_MODEL': 'doubao-seedance-2-5-260628',
++        'VIDEO_API_PROVIDER': 'volcengine',
++    }
++    ROOT.mkdir(parents=True, exist_ok=True); ROOT.chmod(0o700)
++    lines = ['# Managed video API defaults. Never print this file.']
++    for name, value in values.items():
++        lines.append('if [ -z "${'+name+':-}" ]; then export '+name+'='+shlex.quote(value)+'; fi')
++    fd, tmp = tempfile.mkstemp(prefix='.env-', dir=str(ROOT))
++    try:
++        with os.fdopen(fd, 'w') as stream:
++            stream.write('\n'.join(lines)+'\n')
++        os.chmod(tmp, 0o600); os.replace(tmp, ROOT/'default.env')
++    finally:
++        if os.path.exists(tmp): os.unlink(tmp)
++    for name,value in values.items():
++        result = subprocess.run(['/bin/launchctl','setenv',name,value],capture_output=True)
++        if result.returncode:
++            raise RuntimeError('launchctl setenv failed for '+name)
++    print('PASS global video environment synchronized; values hidden')
++
++if __name__ == '__main__':
++    main()
+--- before/Library/LaunchAgents/com.jingtianyu.video-api-env.plist
++++ after/Library/LaunchAgents/com.jingtianyu.video-api-env.plist
+@@ -0,0 +1,21 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
++<plist version="1.0">
++<dict>
++	<key>Label</key>
++	<string>com.jingtianyu.video-api-env</string>
++	<key>ProcessType</key>
++	<string>Background</string>
++	<key>ProgramArguments</key>
++	<array>
++		<string>/usr/bin/python3</string>
++		<string>/Users/jingtianyu/.config/video-generation/sync_env.py</string>
++	</array>
++	<key>RunAtLoad</key>
++	<true/>
++	<key>StandardErrorPath</key>
++	<string>/Users/jingtianyu/.config/video-generation/launch-agent-error.log</string>
++	<key>StandardOutPath</key>
++	<string>/Users/jingtianyu/.config/video-generation/launch-agent.log</string>
++</dict>
++</plist>
+--- before/Documents/Codex/seedance-connector/skill/scripts/seedance.py
++++ after/Documents/Codex/seedance-connector/skill/scripts/seedance.py
+@@ -32,5 +32,5 @@
+-def request(cfg, method, route, payload=None):
+-    if not cfg.get('enabled'):
+-        raise ValueError('Connector is disabled.')
+-    if not (route == '/contents/generations/tasks?page_size=1' or route == '/contents/generations/tasks' or re.fullmatch(r'/contents/generations/tasks/[A-Za-z0-9_-]{1,160}', route)):
+-        raise ValueError('Unsupported API route.')
++def read_key(cfg):
++    for name in ('ARK_API_KEY', 'SEEDANCE_API_KEY', 'VIDEO_API_KEY'):
++        value = os.environ.get(name)
++        if value:
++            return value
+@@ -42,0 +43,9 @@
++    return key
++
++
++def request(cfg, method, route, payload=None):
++    if not cfg.get('enabled'):
++        raise ValueError('Connector is disabled.')
++    if not (route == '/contents/generations/tasks?page_size=1' or route == '/contents/generations/tasks' or re.fullmatch(r'/contents/generations/tasks/[A-Za-z0-9_-]{1,160}', route)):
++        raise ValueError('Unsupported API route.')
++    key = read_key(cfg)
+--- before/Documents/Codex/seedance-connector/skill/SKILL.md
++++ after/Documents/Codex/seedance-connector/skill/SKILL.md
+@@ -11 +11 @@
+-- 密钥由脚本读取 `/Users/jingtianyu/.config/seedance/credentials.json`。不要通过 cat、日志、截图或回复展示密钥；项目源码不包含密钥。
++- 密钥按 `ARK_API_KEY` → `SEEDANCE_API_KEY` → `VIDEO_API_KEY` 顺序读取全局或当前进程环境变量；未设置时才读取 `/Users/jingtianyu/.config/seedance/credentials.json`。当前用户已将此火山方舟密钥设为默认视频生成凭据。不要通过 cat、日志、截图或回复展示密钥；项目源码不包含密钥。
+--- before/Documents/Codex/seedance-connector/README.md
++++ after/Documents/Codex/seedance-connector/README.md
+@@ -30,0 +31,11 @@
++
++## Mac 当前用户全局默认
++
++- 主变量：`ARK_API_KEY`；兼容别名：`SEEDANCE_API_KEY`、`VIDEO_API_KEY`。
++- 默认服务变量：`VIDEO_API_PROVIDER`、`VIDEO_API_BASE_URL`、`VIDEO_API_MODEL`。
++- Shell 默认载入：`/Users/jingtianyu/.zshenv` 和 `/Users/jingtianyu/.profile`。
++- 私有环境文件：`/Users/jingtianyu/.config/video-generation/default.env`（600）。
++- 用户登录启动项：`/Users/jingtianyu/Library/LaunchAgents/com.jingtianyu.video-api-env.plist`。
++- 新终端生效；已经运行的图形应用需退出后重新启动以继承新环境。程序仍需支持相应环境变量；不是所有视频软件自动切换供应商。
++- 显式设置的进程环境变量优先，不覆盖项目自己的非空变量。此凭据默认仅用于火山方舟，不用于其他平台。
++- 全局回退：`/Users/jingtianyu/Documents/Codex/seedance-connector/global-env/ROLLBACK.sh`，会保留恢复前副本，不删除原始密钥文件。
+--- before/Documents/Codex/seedance-connector/test_seedance.py
++++ after/Documents/Codex/seedance-connector/test_seedance.py
+@@ -14,0 +15,12 @@
++    def setUp(self):
++        environment = patch.dict(client.os.environ, {}, clear=True)
++        environment.start(); self.addCleanup(environment.stop)
++
++    def test_global_key_precedence_without_credential_file(self):
++        with patch.dict(client.os.environ, {'ARK_API_KEY':'ark-test','SEEDANCE_API_KEY':'seed-test','VIDEO_API_KEY':'video-test'}, clear=True):
++            self.assertEqual(client.read_key({}), 'ark-test')
++        with patch.dict(client.os.environ, {'SEEDANCE_API_KEY':'seed-test','VIDEO_API_KEY':'video-test'}, clear=True):
++            self.assertEqual(client.read_key({}), 'seed-test')
++        with patch.dict(client.os.environ, {'VIDEO_API_KEY':'video-test'}, clear=True):
++            self.assertEqual(client.read_key({}), 'video-test')
++
